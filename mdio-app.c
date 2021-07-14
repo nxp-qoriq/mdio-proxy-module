@@ -95,6 +95,9 @@ int main(int argc, char *argv[])
 
 	sendmsg(fd, &msg, 0);
 
+	if (mdio_msg.op == MDIO_OP_WRITE)
+		goto finish;
+
 	/* receive reply using the same iov and msg
 	 * clear the nlh before recv
 	 */
