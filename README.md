@@ -11,30 +11,36 @@
 <pre><code>
 	export CROSS_COMPILE=aarch64-linux-gnu-
 	export ARCH=arm64
-</pre></code>
+</code></pre>
 <p> compile
-<code><pre>
+<pre><code>
 	make KBUILD_DIR=&lt;path to kernel&gt;</p>
-</pre></code>
+</code></pre>
 
 <h2>Usage</h2>
 
 <p>load kernel module using insmod
 <code>    NXP MDIO proxy module loaded</code>
 <p>use the mdio-app tool to read/write phy registers
-<code><pre>
-    root@localhost:~# ./mdio-app
-    Usage:
-            ./mdio-app &lt;bus&gt; &lt;addr&gt; c22 &lt;reg&gt; [data]
-            ./mdio-app &lt;bus&gt; &lt;addr&gt; c45 &lt;devad&gt; &lt;reg&gt; [data]
-</pre></code>
+<pre><code>
+	root@localhost:~# ./mdio-app
+	List of registered busses:
+	        8b96000
+	        fixed-0
+	Usage:
+	        ./mdio-app &lt;buss&gt; &lt;addr&gt; c22 &lt;reg&gt; [data]
+	        ./mdio-app &lt;buss&gt; &lt;addr&gt; c45 &lt;devads&gt; &lt;regs&gt; [data]
+	Example:
+	        ./mdio-app 8b96000 0 c45 1e 3
+	        ./mdio-app 8b96000 0x8 c45 0x1e 0x2
+</code></pre>
 <p>Example reading PHYID from an AQR113c ethernet phy.
-<code><pre>
-    root@localhost:~# ./mdio-app 1afd000 0 c45 1e 3
-    Got back: data=0x1c12
-    root@localhost:~# ./mdio-app 1afd000 0 c45 1e 2
-    Got back: data=0x31c3</p>
-</pre></code>
+<pre><code>
+	root@localhost:~# ./mdio-app 8b96000 0x8 c45 0x1e 0x2
+	Got back data: 0x31c3
+	root@localhost:~# ./mdio-app 8b96000 0x8 c45 0x1e 0x3
+	Got back data: 0x1c42
+</code></pre>
 
 <h2>Contributors</h2>
 
