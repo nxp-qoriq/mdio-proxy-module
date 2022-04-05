@@ -1,16 +1,75 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
-/* Copyright 2020 NXP
+/* Copyright 2020-2022 NXP
  */
 #include <linux/types.h>
 #include <linux/netlink.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-
+#include <dirent.h>
 #include "mdio-common.h"
+
+#define MAX_SYSFS_PATH_LEN	256
+#define SYSFS_CLASS_MDIO	"/sys/class/mdio_bus/"
+
+/* API to tell if a /sys/class/mdio_bus/.. entry is a device */
+static int is_mdio_bus(const struct dirent *entry)
+{
+	char path[MAX_SYSFS_PATH_LEN];
+	struct stat st;
+
+	if (snprintf(path,
+		     MAX_SYSFS_PATH_LEN-1,
+		     SYSFS_CLASS_MDIO "%s/device",
+		     entry->d_name) < MAX_SYSFS_PATH_LEN)
+		return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+
+	return 0;
+}
+
+/* API that itereates through sysfs dir and returns name of first bus found */
+static char* dump_all_mdio_busses()
+{
+	struct dirent **namelist;
+	char *first_bus = NULL;
+	int bus_cnt = 0;
+	int i;
+
+	bus_cnt = scandir(SYSFS_CLASS_MDIO, &namelist, is_mdio_bus, alphasort);
+	if (bus_cnt <= 0)
+		return NULL;
+
+	first_bus = strdup(namelist[0]->d_name);
+
+	for (i = 0; i < bus_cnt; i++) {
+		printf("\t%s\n", namelist[i]->d_name);
+		free(namelist[i]);
+	}
+
+	free(namelist);
+	return first_bus;
+}
+
+/* shows usage and examples based on sysfs entries */
+void usage(char *argv0)
+{
+	char *example_bus = NULL;
+
+	printf("List of registered busses:\n");
+	example_bus = dump_all_mdio_busses();
+	printf("Usage:\n");
+	printf("\t%s <bus> <addr> c22 <reg> [data]\n", argv0);
+	printf("\t%s <bus> <addr> c45 <devad> <reg> [data]\n", argv0);
+	printf("Example:\n");
+	printf("\t%s %s 0 c45 1e 3\n", argv0, example_bus);
+	printf("\t%s %s 0x8 c45 0x1e 0x2\n", argv0, example_bus);
+	free(example_bus);
+}
 
 /* A very early proof-of-concept for accessing mdio busses from userspace */
 int main(int argc, char *argv[])
@@ -26,11 +85,8 @@ int main(int argc, char *argv[])
 	int retries = 100;
 
 	if ((argc < 5) || (argc > 7)) {
-		fprintf(stderr, "Wrong number of parameters provided.\n");
-		fprintf(stderr, "Usage:\n");
-		fprintf(stderr, "\t%s <bus> <addr> c22 <reg> [data]\n", argv[0]);
-		fprintf(stderr, "\t%s <bus> <addr> c45 <devad> <reg> [data]\n", argv[0]);
-		return -1;
+		usage(argv[0]);
+		return 0;
 	}
 
 	memset(&mdio_msg, 0, sizeof(mdio_msg));
