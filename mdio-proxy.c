@@ -37,9 +37,11 @@ static void netlink_recvmsg(struct sk_buff *skb)
 	struct mdio_message mdio_msg;
 	size_t message_size = sizeof(struct mdio_message);
 	struct sk_buff *skb_out;
+	bool is_c45;
 	int tmp;
 
 	memcpy(&mdio_msg,  nlmsg_data(nlh), sizeof(mdio_msg));
+	is_c45 = !!(mdio_msg.reg & (1 << 30));
 
 	/*	
 	printk(KERN_INFO "Received: bus=[%s], addr=%#x, op=%s, reg=%#x, data=%#x\n",
@@ -57,16 +59,30 @@ static void netlink_recvmsg(struct sk_buff *skb)
 	}
 
 	if (mdio_msg.op == MDIO_OP_READ) {
-		tmp = mdiobus_read(mdio_bus, mdio_msg.addr, mdio_msg.reg);
-		if (tmp < 0) {
-			mdio_msg.result = MDIO_RESULT_FAILURE;
-			goto bailout;
+		if (is_c45) {
+			tmp = mdiobus_c45_read(mdio_bus, mdio_msg.addr,
+					       mdio_msg.reg >> 16, mdio_msg.reg & 0xFFFF);
+			if (tmp < 0) {
+				mdio_msg.result = MDIO_RESULT_FAILURE;
+				goto bailout;
+			}
+		} else {
+			tmp = mdiobus_read(mdio_bus, mdio_msg.addr, mdio_msg.reg);
+			if (tmp < 0) {
+				mdio_msg.result = MDIO_RESULT_FAILURE;
+				goto bailout;
+			}
 		}
 
 		mdio_msg.result = MDIO_RESULT_SUCCESS;
 		mdio_msg.data = (uint16_t) tmp;
 	} else if (mdio_msg.op == MDIO_OP_WRITE) {
-		tmp = mdiobus_write(mdio_bus, mdio_msg.addr, mdio_msg.reg, mdio_msg.data);
+		if (is_c45) {
+			tmp = mdiobus_c45_write(mdio_bus, mdio_msg.addr, mdio_msg.reg >> 16,
+						mdio_msg.reg & 0xFFFF, mdio_msg.data);
+		} else {
+			tmp = mdiobus_write(mdio_bus, mdio_msg.addr, mdio_msg.reg, mdio_msg.data);
+		}
 		/* speed optimization - do not send ack after write
 		if (tmp < 0) {
 			mdio_msg.result = MDIO_RESULT_FAILURE;
